@@ -1,7 +1,9 @@
 import requests  # Bibliothèque pour envoyer des requêtes HTTP
 import os
+import time  # à ajouter en haut du fichier
 from bs4 import BeautifulSoup  # à ajouter en haut du fichier
 import json  # à ajouter en haut du fichier
+from urllib.parse import urljoin  # à ajouter en haut du fichier
 
 # Étape 1 : définir l'URL de la page à télécharger
 URL = "https://www.francetvinfo.fr/"
@@ -38,17 +40,25 @@ all_a = soup.select("a.card-article-majeure__link")
 # Étape 3 : stocker les titres et les liens dans un diconnaire
 for a in all_a:
     href = a.get("href")
-    h2 = a.find("h2")
-    title = h2.get_text(strip=True) if h2 else None
+    full_url = urljoin(URL, href)  # reconstitution de l’URL complète
+     
+    try: 
+        time.sleep(0.5)  # Pause de 0.5 seconde entre les requêtes
+        resp_article = requests.get(full_url, headers={"User-Agent": "Mozilla/5.0"})
 
-    if href and title:
-        articles[title] = href
+        article_soup = BeautifulSoup(resp_article.text, "html.parser")
+        title = article_soup.select_one("h1.c-title").get_text(strip=True)
+        print(title)
+        article = article_soup.select_one("div.c-body").get_text(strip=True)
+        
+        if href and title:
+            articles[title] = title, article 
+        
+    except requests.RequestException as e:
+        print(f"[WARN] Impossible de charger {full_url} : {e}")
 
-# Étape 4 : afficher le dictionnaire
-#print(f"Dictionnaire des articles majeurs : {articles}")
 
 # Étape 5 : écrire le dictionnaire dans un fichier JSON
 with open("./scrap/articles_francetvinfo.json", "w", encoding="utf-8") as f:
     json.dump(articles, f, ensure_ascii=False, indent=4)
-
 
